@@ -37,7 +37,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc;
  * document with the desired data formatted in the required format.
  * 
  * @author  Wayne Wooten
- * @version 1.0
+ * @version 1.1
  * @since   2017-12-14
  *
  *******************************************************************************/
@@ -248,6 +248,8 @@ public class TwoWeekCalendar {
 	 *     true if the description contains ward specific character patterns
 	 */
 	private boolean isWardEvent(String eventDescription) {
+		if (eventDescription.contains("WARD CONFERENCE")) return false;
+		
 		return (eventDescription.contains("BP") ||
 				eventDescription.contains("Buena Park Ward") ||
 				eventDescription.contains("CY") ||
