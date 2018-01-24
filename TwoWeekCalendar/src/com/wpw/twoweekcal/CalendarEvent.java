@@ -120,7 +120,8 @@ public class CalendarEvent {
 	public boolean isIncluded() {
 		return  (includeAllDates ||
 				(startDate.compareTo(calendarStartDate) >= 0 && startDate.compareTo(calendarEndDate) <= 0) ||
-				(endDate.compareTo(  calendarStartDate) >= 0 && endDate.compareTo(  calendarEndDate) <= 0));
+				(endDate.compareTo(  calendarStartDate) >= 0 && endDate.compareTo(  calendarEndDate) <= 0) ||
+				(startDate.compareTo(calendarStartDate) <= 0 && endDate.compareTo(  calendarEndDate) >= 0));
 	}
 	
 	/**
