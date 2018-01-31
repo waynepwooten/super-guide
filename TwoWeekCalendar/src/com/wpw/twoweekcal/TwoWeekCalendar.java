@@ -249,6 +249,7 @@ public class TwoWeekCalendar {
 	 */
 	private boolean isWardEvent(String eventDescription) {
 		if (eventDescription.contains("WARD CONFERENCE")) return false;
+		if (eventDescription.contains("Family History Marathon")) return false;
 		
 		return (eventDescription.contains("BP") ||
 				eventDescription.contains("Buena Park Ward") ||
