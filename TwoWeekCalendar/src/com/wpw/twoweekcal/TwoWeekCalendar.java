@@ -248,9 +248,11 @@ public class TwoWeekCalendar {
 	 *     true if the description contains ward specific character patterns
 	 */
 	private boolean isWardEvent(String eventDescription) {
-		if (eventDescription.contains("SEMINARY")) return false;
-		if (eventDescription.contains("WARD CONFERENCE")) return false;
-		if (eventDescription.contains("Family History Marathon")) return false;
+		String educ = eventDescription.toUpperCase();
+		
+		if (educ.contains("SEMINARY")) return false;
+		if (educ.contains("WARD CONFERENCE")) return false;
+		if (educ.contains("FAMILY HISTORY MARATHON")) return false;
 		
 		return (eventDescription.contains("BP") ||
 				eventDescription.contains("Buena Park Ward") ||
