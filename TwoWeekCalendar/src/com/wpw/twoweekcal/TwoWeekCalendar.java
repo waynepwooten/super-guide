@@ -1,9 +1,11 @@
 package com.wpw.twoweekcal;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.time.LocalDate;
@@ -11,8 +13,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
@@ -47,6 +51,9 @@ public class TwoWeekCalendar {
 	public static final File CALENDAR_DATA = new File("Calendar Data.docx");		// Input file
 	public static final File TWO_WEEK_CAL  = new File("Two Week Calendar.docx");	// Output file
 	
+	// Skipped events file
+	public static final File SKIPPED_EVENTS = new File("Skipped Events.txt");
+	
 	// Date and time patterns to determine if text read is a date or time
 	public static final Pattern DATE_PATTERN = Pattern.compile("\\d{1,2}/\\d{1,2}/\\d{4}");
 	public static final Pattern TIME_PATTERN = Pattern.compile("(All Day|\\d{1,2}:\\d{2}[ap])");
@@ -55,8 +62,8 @@ public class TwoWeekCalendar {
 	public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy");
 	public static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 	
-	// A list of events that should be skipped
-	public static final List<String> SKIPPED_EVENT_LIST = getSkippedEventsList();
+	// A set of events that should be skipped
+	public static final Set<String> SKIPPED_EVENTS_SET = getSkippedEventsSet();
 	
 	// Booleans to determine if events should be skipped
 	// or the calendar should be printed to standard out
@@ -276,16 +283,38 @@ public class TwoWeekCalendar {
 	}
 	
 	/**
-	 * Gets a list of events that should be skipped
+	 * Gets a set of events that should be skipped
 	 * 
 	 * @return
-	 *     a list of events that should be skipped
+	 *     a set of events that should be skipped
 	 */
-	private static List<String> getSkippedEventsList() {
-		List<String> skippedEvents = new ArrayList<>();
-		skippedEvents.add("FHE");
-		skippedEvents.add("Stake Employment Center Hours");
-		skippedEvents.add("Stake Bishop's Baptisms");
+	private static Set<String> getSkippedEventsSet() {
+		Set<String> skippedEvents = new HashSet<>();
+		
+		BufferedReader br = null;
+		String line;
+		
+		try {
+			br = new BufferedReader(new FileReader(SKIPPED_EVENTS));
+			
+			while ((line = br.readLine()) != null) {
+				skippedEvents.add(line);
+			}
+			
+		} catch (FileNotFoundException e) {
+			System.out.println("Skipped events file not found!");
+			
+		} catch (IOException e) {
+			System.out.println("Error reading skipped events file!");
+			e.printStackTrace();
+			
+		} finally {
+			try {
+				if (br != null) br.close();
+			} catch (IOException e) {
+			}
+		}
+		
 		return skippedEvents;
 	}
 	
@@ -301,7 +330,7 @@ public class TwoWeekCalendar {
 	private boolean skipEvent(String text) {
 		if (keepAllEvents) return false;
 		
-		if (text.contains("ARP") || text.contains("PASG") || SKIPPED_EVENT_LIST.contains(text)) {
+		if (text.contains("ARP") || text.contains("PASG") || SKIPPED_EVENTS_SET.contains(text)) {
 			int count = 0;
 			
 			if (skippedEventMap.containsKey(text)) {
