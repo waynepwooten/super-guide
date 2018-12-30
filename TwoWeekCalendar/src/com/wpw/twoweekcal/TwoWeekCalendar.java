@@ -41,7 +41,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc;
  * document with the desired data formatted in the required format.
  * 
  * @author  Wayne Wooten
- * @version 1.1
+ * @version 1.2
  * @since   2017-12-14
  *
  *******************************************************************************/
@@ -52,23 +52,31 @@ public class TwoWeekCalendar {
 	public static final File TWO_WEEK_CAL  = new File("Two Week Calendar.docx");	// Output file
 	
 	// Skipped events file
-	public static final File SKIPPED_EVENTS = new File("Skipped Events.txt");
+	public static final File SKIP_EVENTS      = new File("skip_events.txt");
+	public static final File SKIP_IF_CONTAINS = new File("skip_if_contains.txt");
+	
+	// Sets of events that should be skipped
+	public static final Set<String> SKIP_EVENTS_SET      = getFileContents(SKIP_EVENTS);
+	public static final Set<String> SKIP_IF_CONTAINS_SET = getFileContents(SKIP_IF_CONTAINS);
 	
 	// Date and time patterns to determine if text read is a date or time
 	public static final Pattern DATE_PATTERN = Pattern.compile("\\d{1,2}/\\d{1,2}/\\d{4}");
 	public static final Pattern TIME_PATTERN = Pattern.compile("(All Day|\\d{1,2}:\\d{2}[ap])");
 	
+	// Valid Ward Codes
+	public static final Pattern WARD_CODE_PATTERN = Pattern.compile("(BP|CY|LP|CR|VV|CP|WG|GG)");
+	
 	// Date and time formatters to read the input date and time as a local date
 	public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy");
 	public static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 	
-	// A set of events that should be skipped
-	public static final Set<String> SKIPPED_EVENTS_SET = getSkippedEventsSet();
-	
 	// Booleans to determine if events should be skipped
 	// or the calendar should be printed to standard out
-	boolean keepAllEvents = false;
-	boolean printCalendar = false;
+	private boolean keepAllEvents = false;
+	private boolean printCalendar = false;
+	
+	// A specific ward to list
+	private String specificWard;
 	
 	// Maps of events that are all day events
 	// and events that have been skipped
@@ -114,6 +122,15 @@ public class TwoWeekCalendar {
 			} else if (arg.equals("-h")) {
 				showUsage();
 				System.exit(0);
+				
+			} else if (arg.startsWith("-w")) {
+				specificWard = arg.substring(2).toUpperCase();
+				if (!WARD_CODE_PATTERN.matcher(specificWard).matches()) {
+					System.out.println("Invalid ward pattern specified!  " + specificWard);
+					System.out.println("");
+					showUsage();
+					System.exit(0);
+				}
 				
 			} else {
 				if (DATE_PATTERN.matcher(arg).matches()) {
@@ -238,8 +255,12 @@ public class TwoWeekCalendar {
 	 *     the event to add
 	 */
 	private void addEvent(CalendarEvent event) {
-		if (isWardEvent(event.getDescription())) {
-			wardEventList.add(event);
+		String eventDescription = event.getDescription();
+		
+		if (isWardEvent(eventDescription)) {
+			if (addWard(eventDescription)) {
+				wardEventList.add(event);
+			}
 		} else {
 			stakeEventList.add(event);
 		}
@@ -283,29 +304,80 @@ public class TwoWeekCalendar {
 	}
 	
 	/**
-	 * Gets a set of events that should be skipped
+	 * Determines if the ward should be added to the ward event list
+	 * 
+	 * @param eventDescription
+	 *     the event description
+	 * @return
+	 *     true if no specific ward was given or if the event is for the specific ward
+	 */
+	private boolean addWard(String eventDescription) {
+		if (specificWard == null) return true;
+		
+		for (String wardDescription : getWardDescriptions()) {
+			if (eventDescription.contains(wardDescription)) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Gets an array of ward descriptions based on the specific ward
 	 * 
 	 * @return
-	 *     a set of events that should be skipped
+	 *     an array of ward descriptions
 	 */
-	private static Set<String> getSkippedEventsSet() {
-		Set<String> skippedEvents = new HashSet<>();
+	private String[] getWardDescriptions() {
+		if (specificWard == null) {
+			return new String[] {};
+		} else if (specificWard.equals("BP")) {
+			return new String[] {"BP", "Buena Park Ward"};
+		} else if (specificWard.equals("CY")) {
+			return new String[] {"CY", "Cypress Ward"};
+		} else if (specificWard.equals("LP")) {
+			return new String[] {"LP", "La Palma Ward"};
+		} else if (specificWard.equals("CR")) {
+			return new String[] {"CR", "Crescent Ward"};
+		} else if (specificWard.equals("VV")) {
+			return new String[] {"VV", "V V", "V. V.", "Valley View Ward"};
+		} else if (specificWard.equals("CP")) {
+			return new String[] {"CP", "Cypress Park Ward"};
+		} else if (specificWard.equals("WG")) {
+			return new String[] {"WG", "West Grove Ward"};
+		} else if (specificWard.equals("GG")) {
+			return new String[] {"GG", "Garden Grove 11th Branch", "Korean"};
+		} else {
+			return new String[] {};
+		}
+	}
+	
+	/**
+	 * Gets a set of lines in a file
+	 * 
+	 * @return
+	 *     a set of lines in a file
+	 */
+	private static Set<String> getFileContents(File file) {
+		Set<String> contents = new HashSet<>();
 		
 		BufferedReader br = null;
 		String line;
 		
 		try {
-			br = new BufferedReader(new FileReader(SKIPPED_EVENTS));
+			br = new BufferedReader(new FileReader(file));
 			
 			while ((line = br.readLine()) != null) {
-				skippedEvents.add(line);
+				if (line.trim().startsWith("#")) continue;
+				contents.add(line);
 			}
 			
 		} catch (FileNotFoundException e) {
-			System.out.println("Skipped events file not found!");
+			System.out.println("File not found!  " + file);
 			
 		} catch (IOException e) {
-			System.out.println("Error reading skipped events file!");
+			System.out.println("Error reading file!  " + file);
 			e.printStackTrace();
 			
 		} finally {
@@ -315,7 +387,7 @@ public class TwoWeekCalendar {
 			}
 		}
 		
-		return skippedEvents;
+		return contents;
 	}
 	
 	/**
@@ -330,7 +402,7 @@ public class TwoWeekCalendar {
 	private boolean skipEvent(String text) {
 		if (keepAllEvents) return false;
 		
-		if (text.contains("ARP") || text.contains("PASG") || SKIPPED_EVENTS_SET.contains(text)) {
+		if (isSkippedEvent(text)) {
 			int count = 0;
 			
 			if (skippedEventMap.containsKey(text)) {
@@ -343,6 +415,22 @@ public class TwoWeekCalendar {
 		} else {
 			return text.trim().isEmpty();
 		}
+	}
+	
+	/**
+	 * Determines if an event is in either of the skip sets
+	 * 
+	 * @param text
+	 *     the description of the event
+	 * @return
+	 *     true if the event should be skipped
+	 */
+	private boolean isSkippedEvent(String text) {
+		for (String str : SKIP_IF_CONTAINS_SET) {
+			if (text.contains(str)) return true;
+		}
+		
+		return SKIP_EVENTS_SET.contains(text);
 	}
 	
 	/**
@@ -526,13 +614,18 @@ public class TwoWeekCalendar {
 		System.out.println("Cypress California Stake.");
 		System.out.println("");
 		System.out.println("Usage:");
-		System.out.println("    java -jar TwoWeekCalendar.jar [-a] [-k] [-p] [-h] [start_date]");
+		System.out.println("    java -jar TwoWeekCalendar.jar [-a] [-k] [-p] [-h] [-wCODE] [start_date]");
 		System.out.println("");
 		System.out.println("Optional Flags:");
 		System.out.println("    -a - include all dates");
 		System.out.println("    -k - keep all events - do not skip");
 		System.out.println("    -p - print to standard out");
 		System.out.println("    -h - help - show these usage instructions");
+		System.out.println("    -w - show only a specific ward");
+		System.out.println("         followed by the ward code");
+		System.out.println("         (BP|CY|LP|CR|VV|CP|WG|GG)");
+		System.out.println("         BP=Buena Park, CY=Cypress, etc.");
+		System.out.println("         (E.g. java -jar TwoWeekCalendar.jar -wBP)");
 		System.out.println("");
 		System.out.println("    start_date - an optional start date in the format mm/dd/yyyy");
 		System.out.println("                 the default start date is the next Thursday");
