@@ -41,7 +41,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc;
  * document with the desired data formatted in the required format.
  * 
  * @author  Wayne Wooten
- * @version 1.2
+ * @version 1.3
  * @since   2017-12-14
  *
  *******************************************************************************/
@@ -483,6 +483,8 @@ public class TwoWeekCalendar {
 			run.setFontFamily("Times New Roman");
 			run.setText("");
 			
+			CalendarEvent.resetLastDatePrinted();
+			
 			p = doc.createParagraph();
 			setParagraph(p);
 			run = p.createRun();
@@ -582,6 +584,9 @@ public class TwoWeekCalendar {
 			}
 		}
 		System.out.println("");
+		
+		CalendarEvent.resetLastDatePrinted();
+		
 		System.out.println("Ward Specific");
 		for (CalendarEvent event : wardEventList) {
 			if (event.isIncluded()) {
