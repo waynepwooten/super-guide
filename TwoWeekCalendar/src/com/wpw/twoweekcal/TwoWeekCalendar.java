@@ -42,7 +42,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc;
  * document with the desired data formatted in the required format.
  * 
  * @author  Wayne Wooten
- * @version 1.3
+ * @version 1.4
  * @since   2017-12-14
  *
  *******************************************************************************/
