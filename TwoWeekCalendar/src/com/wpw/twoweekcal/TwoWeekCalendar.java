@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
@@ -63,6 +64,10 @@ public class TwoWeekCalendar {
 	public static final Pattern DATE_PATTERN = Pattern.compile("\\d{1,2}/\\d{1,2}/\\d{4}");
 	public static final Pattern TIME_PATTERN = Pattern.compile("(All Day|\\d{1,2}:\\d{2}[ap])");
 	
+	// Date and time patterns found in the new style of calendar data
+	public static final Pattern DAY_DATE_PATTERN   = Pattern.compile("[A-Z][a-z]+, ([A-Z][a-z]+) (\\d\\d?)[a-z][a-z], (\\d{4})");
+	public static final Pattern TIME_EVENT_PATTERN = Pattern.compile("(All Day|(\\d{1,2}(:\\d{2})?)(am|pm)? - \\d{1,2}(:\\d{2})?(am|pm)) - (.+)");
+	
 	// Valid Ward Codes
 	public static final Pattern WARD_CODE_PATTERN = Pattern.compile("(BP|CY|LP|CR|VV|CP|WG|GG)");
 	
@@ -70,10 +75,16 @@ public class TwoWeekCalendar {
 	public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy");
 	public static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 	
+	// Date and time formatters to read the input date and time as a local date for new style data
+	public static final DateTimeFormatter DATE_FORMATTER2 = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+	
 	// Booleans to determine if events should be skipped
 	// or the calendar should be printed to standard out
 	private boolean keepAllEvents = false;
 	private boolean printCalendar = false;
+	
+	// Boolean to determine if old or new style of calendar data will be read
+	private boolean readOldStyleData = false;
 	
 	// A specific ward to list
 	private String specificWard;
@@ -119,6 +130,9 @@ public class TwoWeekCalendar {
 				CalendarEvent.setWordFormat(false);
 				printCalendar = true;
 				
+			} else if (arg.equals("-o")) {
+				readOldStyleData = true;
+				
 			} else if (arg.equals("-h")) {
 				showUsage();
 				System.exit(0);
@@ -160,13 +174,27 @@ public class TwoWeekCalendar {
 	}
 	
 	/**
+	 * Reads the calendar data from a Microsoft Word document.
+	 * 
+	 * @return
+	 *     true if there were no errors reading the data
+	 */
+	private boolean readCalendarData() {
+		if (readOldStyleData) {
+			return readOldCalendarData();
+		} else {
+			return readNewCalendarData();
+		}
+	}
+	
+	/**
 	 * Reads the calendar data from a Microsoft Word document.  The data in the Word
 	 * document was copied from the church web site under Leader and Clerk Resources.
 	 * 
 	 * @return
 	 *     true if there were no errors reading the data
 	 */
-	private boolean readCalendarData() {
+	private boolean readOldCalendarData() {
 		LocalDate currentDate = null;
 		LocalTime currentTime = null;
 		
@@ -198,32 +226,7 @@ public class TwoWeekCalendar {
 						return false;
 					}
 					
-					if (skipEvent(text)) continue;
-					
-					CalendarEvent event = null;
-					
-					if (currentTime == null) {
-						if (allDayEventMap.containsKey(text)) {
-							event = allDayEventMap.get(text);
-							
-							if (event.isNextDay(currentDate)) {
-								event.setEndDate(currentDate);
-							} else {
-								event = new CalendarEvent(currentDate, text);
-								addEvent(event);
-								allDayEventMap.put(text, event);
-							}
-							
-						} else {
-							event = new CalendarEvent(currentDate, text);
-							addEvent(event);
-							allDayEventMap.put(text, event);
-						}
-						
-					} else {
-						event = new CalendarEvent(currentDate, currentTime, text);
-						addEvent(event);
-					}
+					addCalendarEvent(currentDate, currentTime, text);
 				}
 			}
 			
@@ -232,12 +235,15 @@ public class TwoWeekCalendar {
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 			return false;
+			
 		} catch (InvalidFormatException e) {
 			e.printStackTrace();
 			return false;
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 			return false;
+			
 		} finally {
 			try {
 				if (doc != null) doc.close();
@@ -245,6 +251,118 @@ public class TwoWeekCalendar {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		}
+	}
+	
+	/**
+	 * Reads the calendar data from a Microsoft Word document.  The data in the Word
+	 * document was copied from a print of the Agenda View of the Stake Calendar
+	 * on the Church web site.
+	 * 
+	 * @return
+	 *     true if there were no errors reading the data
+	 */
+	private boolean readNewCalendarData() {
+		LocalDate currentDate = null;
+		LocalTime currentTime = null;
+		
+		FileInputStream fis = null;
+		XWPFDocument doc = null;
+		
+		try {
+			fis = new FileInputStream(CALENDAR_DATA);
+			doc = new XWPFDocument(OPCPackage.open(fis));
+			
+			for (XWPFParagraph p : doc.getParagraphs()) {
+				String text = p.getText();
+				
+				Matcher dayDateMatcher   = DAY_DATE_PATTERN.matcher(text);
+				Matcher timeEventMatcher = TIME_EVENT_PATTERN.matcher(text);
+				
+				if (dayDateMatcher.matches()) {
+					String month = dayDateMatcher.group(1);
+					String day   = dayDateMatcher.group(2);
+					String year  = dayDateMatcher.group(3);
+					
+					String date = String.format("%s %s, %s", month, day, year);
+					currentDate = LocalDate.parse(date, DATE_FORMATTER2);
+					currentTime = null;
+					
+				} else if (timeEventMatcher.matches()) {
+					if (currentDate == null) {
+						System.out.println("Error:  Date must preceed any events in list!");
+						return false;
+					}
+					
+					String time      = timeEventMatcher.group(1);
+					String startTime = timeEventMatcher.group(2);
+					String startAmPm = timeEventMatcher.group(4);
+					String endAmPm   = timeEventMatcher.group(6);
+					text             = timeEventMatcher.group(7);
+					
+					if (time.equals("All Day")) {
+						currentTime = null;
+					} else {
+						if (!startTime.contains(":")) startTime += ":00";
+						if (startAmPm == null) startAmPm = endAmPm;
+						time = startTime + " " + startAmPm.toUpperCase();
+						currentTime = LocalTime.parse(time, TIME_FORMATTER);
+					}
+					
+					addCalendarEvent(currentDate, currentTime, text);
+				}
+			}
+			
+			return true;
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			return false;
+			
+		} catch (InvalidFormatException e) {
+			e.printStackTrace();
+			return false;
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+			
+		} finally {
+			try {
+				if (doc != null) doc.close();
+				if (fis != null) fis.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void addCalendarEvent(LocalDate currentDate, LocalTime currentTime, String text) {
+		if (skipEvent(text)) return;
+		
+		CalendarEvent event = null;
+		
+		if (currentTime == null) {
+			if (allDayEventMap.containsKey(text)) {
+				event = allDayEventMap.get(text);
+				
+				if (event.isNextDay(currentDate)) {
+					event.setEndDate(currentDate);
+				} else {
+					event = new CalendarEvent(currentDate, text);
+					addEvent(event);
+					allDayEventMap.put(text, event);
+				}
+				
+			} else {
+				event = new CalendarEvent(currentDate, text);
+				addEvent(event);
+				allDayEventMap.put(text, event);
+			}
+			
+		} else {
+			event = new CalendarEvent(currentDate, currentTime, text);
+			addEvent(event);
 		}
 	}
 	
@@ -280,11 +398,13 @@ public class TwoWeekCalendar {
 		
 		if (educ.contains("SEMINARY")) return false;
 		if (educ.contains("WARD CONFERENCE")) return false;
+		if (educ.contains("BRANCH CONFERENCE")) return false;
 		if (educ.contains("FAMILY HISTORY MARATHON")) return false;
 		
 		return (eventDescription.contains("BP") ||
 				eventDescription.contains("Buena Park Ward") ||
 				eventDescription.contains("CY") ||
+				eventDescription.contains("Cyp") ||
 				eventDescription.contains("Cypress Ward") ||
 				eventDescription.contains("LP") ||
 				eventDescription.contains("La Palma Ward") ||
@@ -619,13 +739,14 @@ public class TwoWeekCalendar {
 		System.out.println("Cypress California Stake.");
 		System.out.println("");
 		System.out.println("Usage:");
-		System.out.println("    java -jar TwoWeekCalendar.jar [-a] [-k] [-p] [-h] [-wCODE] [start_date]");
+		System.out.println("    java -jar TwoWeekCalendar.jar [-a] [-k] [-p] [-h] [-o] [-wCODE] [start_date]");
 		System.out.println("");
 		System.out.println("Optional Flags:");
 		System.out.println("    -a - include all dates");
 		System.out.println("    -k - keep all events - do not skip");
 		System.out.println("    -p - print to standard out");
 		System.out.println("    -h - help - show these usage instructions");
+		System.out.println("    -o - read old style calendar data");
 		System.out.println("    -w - show only a specific ward");
 		System.out.println("         followed by the ward code");
 		System.out.println("         (BP|CY|LP|CR|VV|CP|WG|GG)");
