@@ -396,6 +396,7 @@ public class TwoWeekCalendar {
 	private boolean isWardEvent(String eventDescription) {
 		String educ = eventDescription.toUpperCase();
 		
+		if (educ.contains("STAKE")) return false;
 		if (educ.contains("SEMINARY")) return false;
 		if (educ.contains("WARD CONFERENCE")) return false;
 		if (educ.contains("BRANCH CONFERENCE")) return false;
