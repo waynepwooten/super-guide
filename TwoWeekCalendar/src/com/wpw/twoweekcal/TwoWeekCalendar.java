@@ -403,24 +403,22 @@ public class TwoWeekCalendar {
 		if (educ.contains("FAMILY HISTORY MARATHON")) return false;
 		
 		return (eventDescription.contains("BP") ||
-				eventDescription.contains("Buena Park Ward") ||
+				eventDescription.contains("Buena Park") ||
 				eventDescription.contains("CY") ||
 				eventDescription.contains("Cyp") ||
-				eventDescription.contains("Cypress Ward") ||
+				eventDescription.contains("Cypress") ||
 				eventDescription.contains("LP") ||
-				eventDescription.contains("La Palma Ward") ||
+				eventDescription.contains("La Palma") ||
 				eventDescription.contains("CR") ||
-				eventDescription.contains("Crescent Ward") ||
+				eventDescription.contains("Crescent") ||
 				eventDescription.contains("VV") ||
 				eventDescription.contains("V V") ||
 				eventDescription.contains("V. V.") ||
-				eventDescription.contains("Valley View Ward") ||
-				eventDescription.contains("CP") ||
-				eventDescription.contains("Cypress Park Ward") ||
+				eventDescription.contains("Valley View") ||
 				eventDescription.contains("WG") ||
-				eventDescription.contains("West Grove Ward") ||
+				eventDescription.contains("West Grove") ||
 				eventDescription.contains("GG") ||
-				eventDescription.contains("Garden Grove 11th Branch") ||
+				eventDescription.contains("Garden Grove") ||
 				eventDescription.contains("Korean"));
 	}
 	
